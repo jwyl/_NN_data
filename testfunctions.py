@@ -26,13 +26,6 @@ ds.add_field(("gas", "Bxy"), function=_Bxy, units="G", force_override=True) #add
 ds.add_field(("gas", "Byz"), function=_Byz, units="G", force_override=True)
 ds.add_field(("gas", "Bxz"), function=_Bxz, units="G", force_override=True)
 
-all_data_lvl3 = ds.smoothed_covering_grid(level=3, left_edge=[0.0,0.0,0.0], dims=[512,512,512])
-X_mag_lvl3=all_data_lvl3["X-magnfield"]
-#Y_mag_lvl3=all_data_lvl3["Y-magnfield"]
-#Z_mag_lvl3=all_data_lvl3["Z-magnfield"]
-#flatx31=np.sum(X_mag_lvl3,axis=1)
-#flatx32=np.sum(X_mag_lvl3,axis=2)
-
 def Crop3DBfield(lvl): #make a 3D covering grid of all 3 of the B-field components, a function of the AMRgrid level (resolution)
     dims=64*2**lvl
     crop_data_lvl= ds.smoothed_covering_grid(level=lvl, left_edge=[-4.0e17,-4.0e17,-4.0e17], dims=[dims,dims,dims])
@@ -67,70 +60,207 @@ def Flattenz(lvl,axis):
     Bz=np.sum(Zmag3d,axis)
     return Bz
 
-fig=plt.figure()
-ppx=yt.ProjectionPlot(ds, "z", "Bxy", weight_field="density") #Project X-component of B-field from z-direction
-B=ppx._frb["Bxy"]
-ax=fig.add_subplot(111)
+
+bg_color="winter"
+quiv_color="YlGnBu"
 tick_locs=np.linspace(0,800,9)
 tick_lbls=np.array(tick_locs*64e-4)
-plt.xticks(tick_locs,tick_lbls)
-plt.yticks(tick_locs,tick_lbls)
-mag=ax.pcolormesh(np.log10(B),cmap="bone")
-cbar_m=plt.colorbar(mag)
-cbar_m.set_label("Bxy projected field strength")
-res=800
 
-densxy=Density2D(0,2) #integrated density along given axis
-x2=Flattenx(0,2) #X-magnetic field integrated along given axis
-y2=Flatteny(0,2) #Y-magnetic field
-U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
-V=np.asarray(zip(*y2)[::-1])
-norm=np.sqrt(U**2+V**2) #magnitude of the vector
-Unorm=U/norm #normalise vectors 
-Vnorm=V/norm
-mask_Unorm=np.ma.masked_where(densxy<np.mean(densxy),Unorm) #create a masked array of Unorm values only in high density regions
-mask_Vnorm=np.ma.masked_where(densxy<np.mean(densxy),Vnorm)
-X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
-quivers=ax.quiver(X,Y,Unorm,Vnorm,norm*1e6,scale=50)
-cbar=plt.colorbar(quivers, orientation="horizontal")
-cbar.set_label('Bxy vectors (uG)')
-plt.title("Bxy")
-plt.xlabel("x (1e4 AU)")
-plt.ylabel("y (1e4 AU)")
-#plt.savefig("quiver_Bxy.png")
+def quivBxy_dens():
+    fig=plt.figure()
+    ppz=yt.ProjectionPlot(ds, "z", "Bxy", weight_field="density") #Project X-component of B-field from z-direction
+    Bz=ppz._frb["density"]
+    ax=fig.add_subplot(111)
+    plt.xticks(tick_locs,tick_lbls)
+    plt.yticks(tick_locs,tick_lbls)
+    Bzmag=ax.pcolormesh(np.log10(Bz),cmap=bg_color)
+    cbar_m=plt.colorbar(Bzmag)
+    cbar_m.set_label("density")
+    res=800
 
+    #densxy=Density2D(0,2) #integrated density along given axis
+    x2=Flattenx(0,2) #X-magnetic field integrated along given axis
+    y2=Flatteny(0,2) #Y-magnetic field
+    U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
+    V=np.asarray(zip(*y2)[::-1])
+    norm=np.sqrt(U**2+V**2) #magnitude of the vector
+    Unorm=U/norm #normalise vectors 
+    Vnorm=V/norm
+    #mask_Unorm=np.ma.masked_where(densxy<np.mean(densxy),Unorm) #create a masked array of Unorm values only in high density regions
+    #mask_Vnorm=np.ma.masked_where(densxy<np.mean(densxy),Vnorm)
+    X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
+    quivers=ax.quiver(X,Y,Unorm,Vnorm,norm*1e6,scale=50,cmap=quiv_color)
+    cbar=plt.colorbar(quivers, orientation="horizontal")
+    cbar.set_label('Bxy vectors (uG)')
+    plt.title("Bxy on density projection")
+    plt.xlabel("x (1e4 AU)")
+    plt.ylabel("y (1e4 AU)")
+    #plt.savefig("quiver_Bxy.png")
 
-fig=plt.figure()
-ppx=yt.ProjectionPlot(ds, "z", "Byz", weight_field="density") #Project X-component of B-field from z-direction
-B=ppx._frb["Byz"]
-ax=fig.add_subplot(111)
-tick_locs=np.linspace(0,800,9)
-tick_lbls=np.array(tick_locs*64e-4)
-plt.xticks(tick_locs,tick_lbls)
-plt.yticks(tick_locs,tick_lbls)
-mag=ax.pcolormesh(np.log10(B))
-#divider = make_axes_locatable(ax)
-#ax_1 = divider.append_axes("right", size="5%", pad=0.05)
-cbar_m=plt.colorbar(mag, fraction=0.046, pad=0.04)
-cbar_m.set_label("Byz")
-res=800
+def quivByz_dens():
+    fig=plt.figure()
+    ppx=yt.ProjectionPlot(ds, "x", "Byz", weight_field="density") #Project X-component of B-field from z-direction
+    Bx=ppx._frb["density"]
+    ax=fig.add_subplot(111)
+    plt.xticks(tick_locs,tick_lbls)
+    plt.yticks(tick_locs,tick_lbls)
+    Bxmag=ax.pcolormesh(np.log10(Bx), cmap=bg_color)
+    cbar_m=plt.colorbar(Bxmag)
+    cbar_m.set_label("density")
+    res=800
 
-densxy=Density2D(0,0) #integrated density along given axis
-x2=Flattenx(0,0) #X-magnetic field integrated along given axis
-y2=Flatteny(0,0) #Y-magnetic field
-U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
-V=np.asarray(zip(*y2)[::-1])
-norm=np.sqrt(U**2+V**2) #magnitude of the vector
-Unorm=U/norm #normalise vectors 
-Vnorm=V/norm
-mask_Unorm=np.ma.masked_where(densxy<np.mean(densxy),Unorm) #create a masked array of Unorm values only in high density regions
-mask_Vnorm=np.ma.masked_where(densxy<np.mean(densxy),Vnorm)
-X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
-quivers=ax.quiver(X,Y,Unorm,Vnorm,norm*1e6,scale=50,cmap="bone")
-#cax_2 = divider.append_axes("top", size="5%", pad=0.05)
-cbar=plt.colorbar(quivers, orientation="horizontal")
-cbar.set_label('Byz vectors (uG)')
-plt.title("Byz vectors on weighted Byz Projection")
-plt.xlabel("x (1e4 AU)")
-plt.ylabel("y (1e4 AU)")
-#plt.savefig("quiversByz_colorsonbone.png")
+    #densxy=Density2D(0,0) #integrated density along given axis
+    x2=Flattenx(0,0) #X-magnetic field integrated along given axis
+    y2=Flatteny(0,0) #Y-magnetic field
+    U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
+    V=np.asarray(zip(*y2)[::-1])
+    norm=np.sqrt(U**2+V**2) #magnitude of the vector
+    Unorm=U/norm #normalise vectors 
+    Vnorm=V/norm
+    #mask_Unorm=np.ma.masked_where(densxy<np.mean(densxy),Unorm) #create a masked array of Unorm values only in high density regions
+    #mask_Vnorm=np.ma.masked_where(densxy<np.mean(densxy),Vnorm)
+    X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
+    quivers=ax.quiver(X,Y,Unorm,Vnorm,norm*1e6,scale=50,cmap=quiv_color)
+    cbar=plt.colorbar(quivers, orientation="horizontal")
+    cbar.set_label('Byz vectors (uG)')
+    plt.title("Byz vectors on weighted density Projection")
+    plt.xlabel("(1e4 AU)")
+    plt.ylabel("(1e4 AU)")
+    #plt.savefig("quiversByz_colorsonbone.png")
+
+def quivBxz_dens():
+    fig=plt.figure()
+    ppy=yt.ProjectionPlot(ds, "y", "Bxz", weight_field="density") #Project X-component of B-field from z-direction
+    By=ppy._frb["density"]
+    ax=fig.add_subplot(111)
+    plt.xticks(tick_locs,tick_lbls)
+    plt.yticks(tick_locs,tick_lbls)
+    Bymag=ax.pcolormesh(np.log10(By), cmap=bg_color)
+    cbar_m=plt.colorbar(Bymag)
+    cbar_m.set_label("density")
+    res=800
+
+    #densxy=Density2D(0,1) #integrated density along given axis
+    x2=Flattenx(0,1) #X-magnetic field integrated along given axis
+    y2=Flatteny(0,1) #Y-magnetic field
+    U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
+    V=np.asarray(zip(*y2)[::-1])
+    norm=np.sqrt(U**2+V**2) #magnitude of the vector
+    Unorm=U/norm #normalise vectors 
+    Vnorm=V/norm
+    #mask_Unorm=np.ma.masked_where(densxy<np.mean(densxy),Unorm) #create a masked array of Unorm values only in high density regions
+    #mask_Vnorm=np.ma.masked_where(densxy<np.mean(densxy),Vnorm)
+    X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
+    quivers=ax.quiver(X,Y,Unorm,Vnorm,norm*1e6,scale=50,cmap=quiv_color)
+    cbar=plt.colorbar(quivers, orientation="horizontal")
+    cbar.set_label('Bxz vectors (uG)')
+    plt.title("Bxz vectors on density projection")
+    plt.xlabel("(1e4 AU)")
+    plt.ylabel("(1e4 AU)")
+    #plt.savefig("quiversByz_colorsonbone.png")
+    
+def plt3quiv():
+    quivBxy_dens()
+    quivByz_dens()
+    quivBxz_dens()
+
+streamdensity=(2,2)
+
+def streamlineBxy_dens():
+    fig=plt.figure()
+    ppz=yt.ProjectionPlot(ds, "z", "Bxy", weight_field="density") #Project X-component of B-field from z-direction
+    Bz=ppz._frb["density"]
+    ax=fig.add_subplot(111)
+    tick_locs=np.linspace(0,800,9)
+    tick_lbls=np.array(tick_locs*64e-4)
+    plt.xticks(tick_locs,tick_lbls)
+    plt.yticks(tick_locs,tick_lbls)
+    Bzmag=ax.pcolormesh(np.log10(Bz),cmap="YlGn")
+    cbar_m=plt.colorbar(Bzmag)
+    cbar_m.set_label("density")
+    res=800
+
+    #densxy=Density2D(0,2) #integrated density along given axis
+    x2=Flattenx(0,2) #X-magnetic field integrated along given axis
+    y2=Flatteny(0,2) #Y-magnetic field
+    U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
+    V=np.asarray(zip(*y2)[::-1])
+    norm=np.sqrt(U**2+V**2) #magnitude of the vector
+    Unorm=U/norm #normalise vectors 
+    Vnorm=V/norm
+    #mask_Unorm=np.ma.masked_where(densxy<np.mean(densxy),Unorm) #create a masked array of Unorm values only in high density regions
+    #mask_Vnorm=np.ma.masked_where(densxy<np.mean(densxy),Vnorm)
+    X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
+    streams=plt.streamplot(X,Y,Unorm,Vnorm,color=norm*1e6,density=streamdensity,cmap=plt.cm.autumn)
+    cbar=plt.colorbar(orientation="horizontal")
+    cbar.set_label('Bxy magnitude (uG)')
+    plt.title("Bxy on density projection")
+    plt.xlabel("(1e4 AU)")
+    plt.ylabel("(1e4 AU)")
+    
+def streamlineByz_dens():
+    fig=plt.figure()
+    ppx=yt.ProjectionPlot(ds, "x", "Byz", weight_field="density") #Project X-component of B-field from z-direction
+    Bx=ppx._frb["density"]
+    ax=fig.add_subplot(111)
+    plt.xticks(tick_locs,tick_lbls)
+    plt.yticks(tick_locs,tick_lbls)
+    Bxmag=ax.pcolormesh(np.log10(Bx), cmap="YlGn")
+    cbar_m=plt.colorbar(Bxmag)
+    cbar_m.set_label("density")
+    res=800
+
+    #densxy=Density2D(0,0) #integrated density along given axis
+    x2=Flattenx(0,0) #X-magnetic field integrated along given axis
+    y2=Flatteny(0,0) #Y-magnetic field
+    U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
+    V=np.asarray(zip(*y2)[::-1])
+    norm=np.sqrt(U**2+V**2) #magnitude of the vector
+    Unorm=U/norm #normalise vectors 
+    Vnorm=V/norm
+    #mask_Unorm=np.ma.masked_where(densxy<np.mean(densxy),Unorm) #create a masked array of Unorm values only in high density regions
+    #mask_Vnorm=np.ma.masked_where(densxy<np.mean(densxy),Vnorm)
+    X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
+    streams=plt.streamplot(X,Y,Unorm,Vnorm,color=norm*1e6,density=(3,3),cmap=plt.cm.autumn)
+    cbar=plt.colorbar(orientation="horizontal")
+    cbar.set_label('Bxy magnitude (uG)')
+    plt.title("Byz vectors on weighted density Projection")
+    plt.xlabel("(1e4 AU)")
+    plt.ylabel("(1e4 AU)")
+    #plt.savefig("quiversByz_colorsonbone.png")
+    
+def streamlineBxz_dens():
+    fig=plt.figure()
+    ppy=yt.ProjectionPlot(ds, "y", "Bxz", weight_field="density") #Project X-component of B-field from z-direction
+    By=ppy._frb["density"]
+    ax=fig.add_subplot(111)
+    plt.xticks(tick_locs,tick_lbls)
+    plt.yticks(tick_locs,tick_lbls)
+    Bymag=ax.pcolormesh(np.log10(By), cmap="YlGn")
+    cbar_m=plt.colorbar(Bymag)
+    cbar_m.set_label("density")
+    res=800
+
+    #densxy=Density2D(0,1) #integrated density along given axis
+    x2=Flattenx(0,1) #X-magnetic field integrated along given axis
+    y2=Flatteny(0,1) #Y-magnetic field
+    U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
+    V=np.asarray(zip(*y2)[::-1])
+    norm=np.sqrt(U**2+V**2) #magnitude of the vector
+    Unorm=U/norm #normalise vectors 
+    Vnorm=V/norm
+    #mask_Unorm=np.ma.masked_where(densxy<np.mean(densxy),Unorm) #create a masked array of Unorm values only in high density regions
+    #mask_Vnorm=np.ma.masked_where(densxy<np.mean(densxy),Vnorm)
+    X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
+    streams=plt.streamplot(X,Y,Unorm,Vnorm,color=norm*1e6,density=(3,3),cmap=plt.cm.autumn)
+    cbar=plt.colorbar(orientation="horizontal")
+    cbar.set_label('Bxz vectors (uG)')
+    plt.title("Bxz vectors on density projection")
+    plt.xlabel("(1e4 AU)")
+    plt.ylabel("(1e4 AU)")
+    #plt.savefig("quiversByz_colorsonbone.png")
+
+def plt3stream():
+    streamlineBxy_dens()
+    streamlineByz_dens()
+    streamlineBxz_dens()
