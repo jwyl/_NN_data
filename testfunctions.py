@@ -56,13 +56,12 @@ def Flatteny(lvl,axis):
     return By
     
 def Flattenz(lvl,axis):
-    (Xmag3d,Ymag3d,Zmag3d)=CropThreeDarray(lvl)
+    (Xmag3d,Ymag3d,Zmag3d)=Crop3DBfield(lvl)
     Bz=np.sum(Zmag3d,axis)
     return Bz
 
-
-bg_color="winter"
-quiv_color="YlGnBu"
+bg_color="autumn"
+quiv_color="YlGn"
 tick_locs=np.linspace(0,800,9)
 tick_lbls=np.array(tick_locs*64e-4)
 
@@ -119,7 +118,7 @@ def quivByz_dens():
     Vnorm=V/norm
     #mask_Unorm=np.ma.masked_where(densxy<np.mean(densxy),Unorm) #create a masked array of Unorm values only in high density regions
     #mask_Vnorm=np.ma.masked_where(densxy<np.mean(densxy),Vnorm)
-    X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
+    X,Y=np.meshgrid(np.linspace(0,res,64,endpoint=True),np.linspace(0,res,64,endpoint=True))
     quivers=ax.quiver(X,Y,Unorm,Vnorm,norm*1e6,scale=50,cmap=quiv_color)
     cbar=plt.colorbar(quivers, orientation="horizontal")
     cbar.set_label('Byz vectors (uG)')
@@ -159,7 +158,7 @@ def quivBxz_dens():
     plt.ylabel("(1e4 AU)")
     #plt.savefig("quiversByz_colorsonbone.png")
     
-def plt3quiv():
+def plt3quiv(): #Plot quiver plots of all three planes
     quivBxy_dens()
     quivByz_dens()
     quivBxz_dens()
@@ -211,8 +210,8 @@ def streamlineByz_dens():
     res=800
 
     #densxy=Density2D(0,0) #integrated density along given axis
-    x2=Flattenx(0,0) #X-magnetic field integrated along given axis
-    y2=Flatteny(0,0) #Y-magnetic field
+    x2=Flatteny(0,0) #X-magnetic field integrated along given axis
+    y2=Flattenz(0,0) #Y-magnetic field
     U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
     V=np.asarray(zip(*y2)[::-1])
     norm=np.sqrt(U**2+V**2) #magnitude of the vector
@@ -243,7 +242,7 @@ def streamlineBxz_dens():
 
     #densxy=Density2D(0,1) #integrated density along given axis
     x2=Flattenx(0,1) #X-magnetic field integrated along given axis
-    y2=Flatteny(0,1) #Y-magnetic field
+    y2=Flattenz(0,1) #Z-magnetic field
     U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
     V=np.asarray(zip(*y2)[::-1])
     norm=np.sqrt(U**2+V**2) #magnitude of the vector
@@ -264,3 +263,58 @@ def plt3stream():
     streamlineBxy_dens()
     streamlineByz_dens()
     streamlineBxz_dens()
+    
+#Gaussian convolution of quiver plots
+from mpl_toolkits.mplot3d import axes3d
+from matplotlib import cm
+def interact3D():
+    X=Flattenx(0,2)
+    Y=Flatteny(0,2)
+    Z=Flattenz(0,2)
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    ax.plot_surface(X,Y,Z,rstride=8,cstride=8, alpha=0.3)
+    cset = ax.contourf(X,Y,Z, zdir='z', offset=0.,cmap=cm.coolwarm)
+    cset = ax.contourf(X,Y,Z, zdir='x', offset=0., cmap=cm.coolwarm)
+    cset = ax.contourf(X,Y,Z, zdir='y', offset=0., cmap=cm.coolwarm)
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    plt.show()
+
+import scipy as spy
+from scipy import ndimage
+
+def gaussianconv():
+    x2=Flattenx(0,2) #X-magnetic field integrated along given axis
+    y2=Flatteny(0,2) #Y-magnetic field
+    U=np.asarray(zip(*x2)[::-1]) #rotate the matrix 90 degrees to correct orientation to match projected plots
+    V=np.asarray(zip(*y2)[::-1])
+    norm=np.sqrt(U**2+V**2) #magnitude of the vector
+    Unorm=U/norm #normalise vectors 
+    Vnorm=V/norm
+    Ugauss=ndimage.gaussian_filter(Unorm,3)
+    Vgauss=ndimage.gaussian_filter(Unorm,3)
+    return Ugauss, Vgauss, norm
+    
+def plotgaussquiv():
+    fig=plt.figure()
+    ppz=yt.ProjectionPlot(ds, "z", "Bxy", weight_field="density") #Project X-component of B-field from z-direction
+    Bz=ppz._frb["density"]
+    ax=fig.add_subplot(111)
+    plt.xticks(tick_locs,tick_lbls)
+    plt.yticks(tick_locs,tick_lbls)
+    Bzmag=ax.pcolormesh(np.log10(Bz),cmap=bg_color)
+    cbar_m=plt.colorbar(Bzmag)
+    cbar_m.set_label("density")
+    res=800
+    Ugauss,Vgauss, norm=gaussianconv()
+    X,Y=np.meshgrid(np.linspace(0,res,64, endpoint=True),np.linspace(0,res,64,endpoint=True))
+    quivers=ax.quiver(X,Y,Ugauss,Vgauss,norm*1e6,scale=50,cmap=quiv_color)
+    cbar=plt.colorbar(quivers, orientation="horizontal")
+    cbar.set_label('Bxy vectors (uG)')
+    plt.title("Bxy on density projection")
+    plt.xlabel("x (1e4 AU)")
+    plt.ylabel("y (1e4 AU)")
